@@ -1,0 +1,13 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "rootDir": "src",
+    // deleteOutDir (nest-cli.json) apaga o dist/ a cada start, mas o
+    // .tsbuildinfo do build incremental sobrevive e faz o tsc pular a emissão
+    // ("0 errors, nada mudou") → dist/main não é gerado. Desligar o incremental
+    // no build do Nest evita esse cache obsoleto.
+    "incremental": false
+  },
+  "include": ["src/**/*"],
+  "exclude": ["node_modules", "dist", "test", "**/*.spec.ts", "**/*.int-spec.ts"]
+}

@@ -1,0 +1,40 @@
+# Dependências locais do backend Boilerplate.
+#
+# Só o Postgres: a autenticação roda DENTRO da API (Better Auth, ver ADR 0008),
+# então não há mais serviço de IdP para subir. As demais integrações
+# (Redis/Upstash, Meilisearch, R2…) são opcionais no boot e entram conforme
+# suas fatias.
+#
+#   docker compose up -d          # sobe o Postgres
+#   docker compose down           # para (mantém os dados no volume)
+#   docker compose down -v        # para e apaga os dados
+#
+# Atalho: ./scripts/db-up.sh já sobe, espera ficar healthy, migra e semeia.
+
+# ⚠️ O nome do projeto compose DEVE ser único por repositório. Com um nome
+# genérico (ex.: "postgresql"), dois projetos diferentes viram o MESMO projeto
+# para o Docker — e um `docker compose down` num deles remove o contêiner do
+# outro. O init.sh renomeia esta linha junto com o resto.
+name: boilerplate
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: boilerplate-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: boilerplate
+      POSTGRES_PASSWORD: boilerplate
+      POSTGRES_DB: boilerplate
+    ports:
+      - '5433:5432' # host 5433 → bate com DATABASE_URL do .env
+    volumes:
+      - boilerplate_pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U boilerplate -d boilerplate']
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  boilerplate_pgdata:

@@ -1,0 +1,51 @@
+# Dependências
+node_modules/
+.pnp
+.pnp.js
+
+# Build outputs
+dist/
+build/
+.next/
+out/
+
+# Variáveis de ambiente (NUNCA commitar com valores reais)
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+.env.prod
+
+# Logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# OS
+.DS_Store
+Thumbs.db
+
+# IDEs
+.vscode/settings.json
+.idea/
+*.swp
+*.swo
+
+# Coverage
+coverage/
+.nyc_output/
+
+# Cache
+.turbo/
+.cache/
+*.tsbuildinfo
+
+# Rascunhos e artefatos de agente (PRDs, issues locais, anotações soltas).
+# Ver docs/agents/issue-tracker.md — as issues vivem em .scratch/<feature>/.
+.scratch/
+
+# Overrides locais do Claude Code: permissões concedidas nesta máquina.
+# settings.json (compartilhado) FICA versionado; o .local NÃO.
+.claude/settings.local.json

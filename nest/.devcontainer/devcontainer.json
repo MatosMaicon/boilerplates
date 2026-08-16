@@ -1,0 +1,110 @@
+{
+  "name": "claude-code-sandbox",
+  "build": {
+    "dockerfile": "Dockerfile",
+    "args": {
+      "TZ": "America/Sao_Paulo"
+    }
+  },
+
+  "runArgs": [
+    // NET_ADMIN/NET_RAW são necessários para o firewall de saída rodar dentro
+    // do container.
+    "--cap-add=NET_ADMIN",
+    "--cap-add=NET_RAW",
+
+    // Impede que 'node' vire root por binário setuid (sudo, su, mount...).
+    // Root dentro do container consegue `iptables -F` e derruba TODA a
+    // contenção de rede, então este é o cadeado que sustenta o firewall.
+    // ATENÇÃO: isto desativa o sudo. Por isso o firewall migrou do
+    // postStartCommand para o ENTRYPOINT (ver entrypoint.sh).
+    "--security-opt=no-new-privileges",
+
+    // Limites de recurso: um processo em disparada (loop, fork bomb, build
+    // descontrolado) não pode congelar o WSL2 inteiro.
+    // O host tem 14 CPUs e ~4 GB de RAM — a memória é o limite apertado aqui.
+    // Se um `next build` for morto por OOM, suba o --memory (o teto prático é
+    // ~3,5g, o que a VM do WSL2 tem).
+    "--cpus=8",
+    "--memory=3g",
+    "--memory-swap=4g",
+    "--pids-limit=512"
+  ],
+
+  // O processo init do container roda como root para o ENTRYPOINT conseguir
+  // aplicar o firewall. O usuário interativo (e o Claude Code) continua sendo
+  // 'node': o --dangerously-skip-permissions é RECUSADO se rodar como root.
+  "containerUser": "root",
+  "remoteUser": "node",
+
+  // OBRIGATÓRIO. Com o padrão (true), a extensão Dev Containers sobe o
+  // container com `--entrypoint /bin/sh` e um laço de sleep próprio — isso
+  // DESCARTA o ENTRYPOINT da imagem e o firewall nunca é aplicado. Não é só o
+  // CMD que é substituído, como o nome da chave sugere. Quem mantém o
+  // container vivo agora é o CMD do Dockerfile (`sleep infinity`).
+  "overrideCommand": false,
+
+  "mounts": [
+    // Persiste o login/config do Claude e o histórico do shell entre rebuilds.
+    // ${devcontainerId} isola o volume por projeto.
+    "source=claude-config-${devcontainerId},target=/home/node/.claude,type=volume",
+    "source=claude-bashhistory-${devcontainerId},target=/commandhistory,type=volume",
+
+    // .git/hooks e .git/config SOMENTE LEITURA.
+    //
+    // O workspace é bind mount do host, então este .git é o MESMO que o host
+    // enxerga — e o git deste projeto é operado no host (remote via SSH). Um
+    // hook escrito aqui dentro executaria no HOST no próximo `git pull`, como
+    // o seu usuário, fora do firewall e com a sua chave SSH: seria o escape
+    // completo do container, sem você mandar rodar nada.
+    //
+    // .git/config fecha as mesmas portas por outro caminho (core.fsmonitor,
+    // alias !sh, filter.*.clean/smudge, core.sshCommand) e ainda o
+    // url.<x>.insteadOf, que redireciona o push para outro remote em silêncio.
+    // Também é o que impede burlar o mount acima via core.hooksPath.
+    //
+    // Custo: `git config`, `git remote add` e `git branch -u` falham DENTRO do
+    // container, e a extensão Git do VS Code não consegue gravar as chaves
+    // branch.*.vscode-merge-base (erro no output do Git, não bloqueia nada).
+    // Como git é feito no host por decisão do projeto, o custo é ~zero.
+    "source=${localWorkspaceFolder}/.git/hooks,target=${containerWorkspaceFolder}/.git/hooks,type=bind,readonly",
+    "source=${localWorkspaceFolder}/.git/config,target=${containerWorkspaceFolder}/.git/config,type=bind,readonly"
+  ],
+
+  "containerEnv": {
+    "CLAUDE_CONFIG_DIR": "/home/node/.claude",
+    "CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC": "1"
+  },
+
+  // Neutraliza os sockets do host que o VS Code encaminha para dentro do
+  // container. Mesmo que o arquivo de socket exista, nenhuma ferramenta o usa
+  // sem estas variáveis:
+  //   SSH_AUTH_SOCK  -> agente SSH com a chave privada do host (permitiria
+  //                     git push e SSH para qualquer servidor)
+  //   DISPLAY        -> display X11 do host (leitura de teclado/tela de outras
+  //                     janelas)
+  //   GPG_AGENT_INFO -> assinatura de commits com a chave GPG do host
+  "remoteEnv": {
+    "SSH_AUTH_SOCK": "",
+    "DISPLAY": "",
+    "GPG_AGENT_INFO": ""
+  },
+
+  "customizations": {
+    "vscode": {
+      // NÃO liste a extensão do Claude Code aqui: ela é específica por plataforma
+      // e o VS Code tentaria baixá-la do Marketplace (bloqueado pelo firewall).
+      // Ela é instalada pelo postAttachCommand a partir do .vsix assado na imagem.
+      "extensions": []
+    }
+  },
+
+  // O firewall é APLICADO pelo ENTRYPOINT (root). Aqui só VERIFICAMOS, como
+  // 'node' e sem privilégio, que ele de fato subiu. Se o ENTRYPOINT não tiver
+  // rodado, o VS Code mostra esta falha em vez de deixar o container aberto
+  // sem ninguém perceber.
+  "postStartCommand": "/usr/local/bin/check-firewall.sh",
+
+  // Instala a extensão do Claude Code a partir do .vsix local (idempotente).
+  "postAttachCommand": "bash /usr/local/bin/install-claude-ext.sh"
+}

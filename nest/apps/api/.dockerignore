@@ -1,0 +1,40 @@
+# Tudo que não deve entrar no contexto de build. Além de imagem menor, isto
+# evita vazar segredo: um `.env` copiado para dentro da imagem fica gravado na
+# camada para sempre, mesmo que um RUN posterior o apague.
+
+.env
+.env.*
+!.env.example
+
+node_modules
+dist
+coverage
+
+# Testes e ferramentas não vão para a imagem (o build só precisa de src +
+# tsconfig + nest-cli.json, e o runtime só do dist).
+test
+**/__tests__
+**/*.spec.ts
+**/*.int-spec.ts
+vitest.config.mts
+vitest.integration.config.mts
+eslint.config.mjs
+.prettierignore
+
+# Migrations são aplicadas do ambiente de desenvolvimento contra o Neon
+# (`npm run db:migrate`, que usa drizzle-kit — uma devDependency). Não há
+# drizzle-kit na imagem de produção, então copiar isto seria carga morta.
+drizzle
+drizzle.config.ts
+
+# Infra local
+docker-compose.yml
+Dockerfile
+.dockerignore
+scripts
+
+# Ruído
+.git
+.gitignore
+*.log
+*.md

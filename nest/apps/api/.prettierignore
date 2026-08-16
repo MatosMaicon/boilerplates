@@ -1,0 +1,18 @@
+# O Prettier resolve o .prettierignore a partir do CWD, por isso ele vive aqui
+# (onde os scripts rodam) e não na raiz — a config (.prettierrc.json) é que é
+# compartilhada, e essa o Prettier procura subindo as pastas.
+
+dist/
+node_modules/
+coverage/
+
+# Gerados pelo drizzle-kit — nunca editados à mão.
+drizzle/
+
+package-lock.json
+
+# Markdown fica FORA do Prettier de propósito: ele repagina as tabelas até a
+# célula mais larga (linhas de 200+ chars, diff gigante a cada edição) e troca
+# *ênfase* por _ênfase_. Os docs são prosa mantida à mão — o .editorconfig já
+# cuida de encoding, fim de linha e espaço à direita.
+*.md
